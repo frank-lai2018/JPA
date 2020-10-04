@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa" xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+http://www.springframework.org/schema/data/jpa
+http://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
+
+    <!--spring 和 spring data jpa的配置-->
+
+    <!-- 1.創建entityManagerFactory對象交給spring容器管理-->
+    <bean id="entityManagerFactoty" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource" />
+        <!--配置的掃描的包（實體類所在的包） -->
+        <property name="packagesToScan" value="com.frank.domain" />
+        <!-- jpa的實現廠家 -->
+        <property name="persistenceProvider">
+            <bean class="org.hibernate.jpa.HibernatePersistenceProvider"/>
+        </property>
+
+        <!--jpa的供應商適配器 -->
+        <property name="jpaVendorAdapter">
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+                <!--配置是否自動創建數據庫表 -->
+                <property name="generateDdl" value="false" />
+                <!--指定數據庫類型 -->
+                <property name="database" value="MYSQL" />
+                <!--數據庫方言：支持的特有語法 -->
+                <property name="databasePlatform" value="org.hibernate.dialect.MySQL8Dialect" />
+                <!--是否顯示sql -->
+                <property name="showSql" value="true" />
+            </bean>
+        </property>
+
+        <!--jpa的方言 ：高級的特性 -->
+        <property name="jpaDialect" >
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaDialect" />
+        </property>
+        
+        
+        <!--注入jpa的配置信息
+           		 加載jpa的基本配置信息和jpa實現方式（hibernate）的配置信息
+            	hibernate.hbm2ddl.auto : 自動創建數據庫表
+                create ： 每次都會重新創建數據庫表
+                update：有表不會重新創建，沒有表會重新創建表
+        -->
+        <property name="jpaProperties" >
+            <props>
+                <prop key="hibernate.hbm2ddl.auto">create</prop>
+            </props>
+        </property>
+
+    </bean>
+
+    <!--2.創建數據庫連接池 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="user" value="root"></property>
+        <property name="password" value="1234"></property>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/jpa?useSSL=false&amp;serverTimezone=UTC" ></property>
+        <property name="driverClass" value="com.mysql.cj.jdbc.Driver"></property>
+    </bean>
+
+    <!--3.整合spring dataJpa-->
+    <jpa:repositories base-package="com.frank.dao" transaction-manager-ref="transactionManager"
+                   entity-manager-factory-ref="entityManagerFactoty" ></jpa:repositories>
+
+    <!--4.配置事務管理器   PlatformTransactionManager 的實現類-->
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactoty"></property>
+    </bean>
+
+    <!-- 4.txAdvice-->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="save*" propagation="REQUIRED"/>
+            <tx:method name="insert*" propagation="REQUIRED"/>
+            <tx:method name="update*" propagation="REQUIRED"/>
+            <tx:method name="delete*" propagation="REQUIRED"/>
+            <tx:method name="get*" read-only="true"/>
+            <tx:method name="find*" read-only="true"/>
+            <tx:method name="*" propagation="REQUIRED"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!-- 5.aop-->
+   <aop:config>
+        <aop:pointcut id="pointcut" expression="execution(* com.frank.service.*.*(..))" />
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="pointcut" />
+    </aop:config>
+
+
+    <!--5.聲明式事務 -->
+
+    <!-- 6. 配置包掃描-->
+    <context:component-scan base-package="com.frank" ></context:component-scan>
+</beans>
